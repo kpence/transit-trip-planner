@@ -1,3 +1,13 @@
+### Upcoming Features
+
+- Improve Graphical UI.
+  - Make it so that default values do not break anything.
+- Include time window for stops.
+- Pull information directly from TAMU website.
+
+
+
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts

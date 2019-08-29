@@ -5,7 +5,7 @@ import TimeTable from '../timetable.js'
 import StopsTable from '../stops.js'
 
 class Node {
-  constructor(route_num,stop_name,bus_num,vals,lat,long,debug) {
+  constructor(route_num,stop_name,bus_num,vals,lat,long,time_strings) {
     this.neighbors = [];
     this.next = null;
     this.internal_weight = null;
@@ -19,7 +19,7 @@ class Node {
     this.vals = vals;
     this.lat = lat;
     this.long = long;
-    this.debug = debug;
+    this.time_strings = time_strings;
   }
 }
 
@@ -28,16 +28,24 @@ class App extends Component {
     super();
     this.state = {
       /* references to node objects, sorted by node object's tentative D value */
+      selected_route_num : "27",
+      selected_stop_name : "Village St",
+      selected_target_route_num : "27",
+      selected_target_stop_name : "Village St",
+      selected_start_dval : 420,
+      route_nums : [],
       unvisited_nodes : [],
       visited_nodes : [],
       initial_node : null,
+      target_node : null,
+      path_results : 0
     };
   }
 
 
   // Converts time string from string_table into Dval (time since starting time)
   /* DONE */
-  timeStringToDVal(str)
+  timeStringToDVal = (str) =>
   {
     if (str.charAt(0) === 'x')
       return -1;
@@ -71,6 +79,7 @@ class App extends Component {
   /* DONE */
   createRoutes()
   {
+    // Set route_nums in lifetime method -> didMount?
     Object.keys(TimeTable).forEach((route_num)=>this.createRoute(route_num));
     this.setAllNeighbors();
   }
@@ -157,6 +166,7 @@ class App extends Component {
      * bus_num -- number of busses on route.
      * vals -- this contains all the pick up time vals for each stop
      * lat, long -- position coordinates
+     * time_strings -- vals but in string format (used for drop down menus)
      * ---SET IN createRoute():
      * internal_weight -- the weight of the internal vertex to next node
      * next -- the next internal node
@@ -178,18 +188,17 @@ class App extends Component {
     const lat = StopsTable[route_num][stop_name]["Latitude"];
     const long = StopsTable[route_num][stop_name]["Longitude"];
 
-    const debug_timetable = TimeTable[route_num]["table_string"].split(' ');
-    const debug = debug_timetable.filter(function(value, index, Arr) {
+    const tt = TimeTable[route_num]["table_string"].split(' ');
+    const time_strings = tt.filter(function(value, index, Arr) {
         return index % stops_length === stop_index;
     });
 
-    const node = new Node(route_num,stop_name,bus_num,vals,lat,long,
-    debug);
+    const node = new Node(route_num,stop_name,bus_num,vals,lat,long,time_strings);
     return node;
   }
 
   /* DONE */
-  getNode(route_num,stop_name)
+  getNode = (route_num,stop_name) =>
   {
     return this.state.unvisited_nodes
              .filter((node) => node.stop_name === stop_name
@@ -244,7 +253,10 @@ class App extends Component {
   /* DONE */
   setInitialNode(node, start_dval)
   {
-    node.dval = this.getWaitTime(node, start_dval) + start_dval;
+    let wait_time = this.getWaitTime(node, start_dval)
+    if (isNaN(wait_time))
+      wait_time = 0;
+    node.dval =  wait_time + start_dval;
     return node;
   }
 
@@ -285,24 +297,123 @@ class App extends Component {
 
     }
 
-    return target_node;
+    return target_node.dval;
 
   }
 
 
   componentDidMount() {
-    this.createRoutes();
-    console.log("routes: ",this.state.unvisited_nodes);
-    let path = this.findPath(this.getNode("27","Village St"), this.getNode("35","Park West"), this.timeStringToDVal("12:00P"));
-    console.log("target: ", path.dval - this.timeStringToDVal("12:00P"), path);
-
-    //
+    this.setState({route_nums : Object.keys(TimeTable)});
   }
+
+  handleRouteNumChange2 = (event) => {
+    this.setState({selected_target_route_num : event.target.value});
+  };
+
+  handleStopNameChange2 = (event) => {
+    this.setState({selected_target_stop_name : event.target.value});
+  };
+
+  handleRouteNumChange = (event) => {
+    this.setState({selected_route_num : event.target.value});
+    this.setState({initial_node : null});
+  };
+
+  handleStopNameChange = (event) => {
+    this.setState({selected_stop_name : event.target.value});
+  };
+
+  handleStartTimeChange = (event) => {
+    this.setState({selected_start_dval : this.timeStringToDVal(event.target.value)});
+  };
+
+  handleButtonPress = () => {
+    console.log("Creating Routes....");
+    this.state.unvisited_nodes = [];
+    this.state.visited_nodes = [];
+    this.createRoutes();
+    console.log("Getting Initial and Target Nodes....");
+    let initial_node = this.getNode(this.state.selected_target_route_num,this.state.selected_target_stop_name);
+    let target_node = this.getNode(this.state.selected_target_route_num,this.state.selected_target_stop_name);
+    if (target_node !== null
+      && typeof target_node !== 'undefined')
+    {
+      console.log("Finding Path....");
+      let val = this.findPath(initial_node, target_node, this.state.selected_start_dval);
+      this.setState({ path_results:  val - this.state.selected_start_dval });
+      console.log("button press", val);
+    }
+  };
 
   render() {
     return (
       <div className="App">
-        /**/
+        <div className="tmp1">
+          Information pulled from: <a href="https://transport.tamu.edu/busroutes/">Texas A&M Transport Services Bus Routes Web Page</a>.
+        </div>
+        <div>
+          <label for='start-time'>Enter the starting time:</label>
+          <input name='start-time' type='time' onChange={this.handleStartTimeChange}></input>
+        </div>
+
+        <div>
+          <select onChange={this.handleRouteNumChange}>
+          {
+            this.state.route_nums.map((route_num, index) => 
+              <option key={index} value={route_num}>
+              Route: {route_num}
+              </option>
+            )
+          }
+          </select>
+
+          <select onChange={this.handleStopNameChange}>
+          {
+            TimeTable[this.state.selected_route_num]["stops"].map((stop_name,index,array) =>
+            (index < array.length - 1)
+              ? <option key={index} value={stop_name}>
+                Stop: {stop_name}
+                </option>
+              : <div></div>
+            )
+          }
+          </select>
+        </div>
+
+        <div>
+          <select onChange={this.handleRouteNumChange2}>
+          {
+            this.state.route_nums.map((route_num, index) => 
+              <option key={index} value={route_num}>
+              Route: {route_num}
+              </option>
+            )
+          }
+          </select>
+
+          <select onChange={this.handleStopNameChange2}>
+          {
+            TimeTable[this.state.selected_target_route_num]["stops"].map((stop_name,index,array) =>
+            (index < array.length - 1)
+              ? <option key={index} value={stop_name}>
+                Stop: {stop_name}
+                </option>
+              : <div></div>
+            )
+          }
+          </select>
+        </div>
+
+        <input type='button' onClick={this.handleButtonPress} value='Find Route' />
+
+        <div className='results_panel'>
+          Estimated Travel Time: {this.state.path_results}
+        </div>
+        <div className="results_panel2">
+          {this.state.selected_route_num} {this.state.selected_stop_name}<br/>
+          {this.state.selected_target_route_num} {this.state.selected_target_stop_name}<br/>
+          {this.state.selected_start_dval} 
+        </div>
       </div>
     );
   }
