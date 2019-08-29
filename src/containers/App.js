@@ -350,12 +350,14 @@ class App extends Component {
       while (node.dprev !== null) {
         let prev_node = node;
         node = node.dprev;
-        let total_val = node.dval - this.state.selected_start_dval;
+        let total_val = prev_node.dval - this.state.selected_start_dval;
         let val = prev_node.dval - node.dval;
         let str = " _ ";
         if (prev_node.route_num !== node.route_num)
-          str += "Switch to Bus Route: '" + node.route_num + "' at stop: ";
-        str += node.stop_name + ", time elapsed here: " + val + ", total time elapsed: " + total_val;
+          str += "Switch from Bus Route: '" + node.route_num + "' at stop: ";
+        else
+          str += "From stop: "
+        str += node.stop_name + ", taking this much time: " + val + ", total time elapsed: " + total_val;
         str2 = str + str2;
       }
       let path_results = "Total Estimated Travel Time: " + end_val + str2 + " _ Destination reached"
