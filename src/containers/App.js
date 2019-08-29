@@ -28,10 +28,10 @@ class App extends Component {
     super();
     this.state = {
       /* references to node objects, sorted by node object's tentative D value */
-      selected_route_num : "27",
-      selected_stop_name : "Village St",
-      selected_target_route_num : "27",
-      selected_target_stop_name : "Village St",
+      selected_route_num : "12",
+      selected_stop_name : "Trigon",
+      selected_target_route_num : "12",
+      selected_target_stop_name : "Trigon",
       selected_start_dval : 420,
       route_nums : [],
       unvisited_nodes : [],
