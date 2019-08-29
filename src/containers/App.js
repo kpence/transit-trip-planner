@@ -11,6 +11,7 @@ class Node {
     this.internal_weight = null;
     this.dval = Infinity;
     this.dprev = null;
+    this.visited = false;
 
     this.route_num = route_num;
     this.stop_name = stop_name;
@@ -45,9 +46,9 @@ class App extends Component {
 
     // If Afternoon or Midnight
     if ((str.charAt(0) === '0' && str.charAt(str.length-1) === 'P')
-     || (str.charAt(0) === '1' && str.charAt(str.length-1) === 'A'))
+     || (str.charAt(0) === '1' && str.charAt(1) === '2' && str.charAt(str.length-1) === 'A'))
     {
-      time += 12*600;
+      time += 12*60;
     }
 
     time += Number(str.charAt(0)) * 600;
@@ -177,15 +178,13 @@ class App extends Component {
     const lat = StopsTable[route_num][stop_name]["Latitude"];
     const long = StopsTable[route_num][stop_name]["Longitude"];
 
-    /*
     const debug_timetable = TimeTable[route_num]["table_string"].split(' ');
     const debug = debug_timetable.filter(function(value, index, Arr) {
         return index % stops_length === stop_index;
     });
-    */
 
     const node = new Node(route_num,stop_name,bus_num,vals,lat,long,
-    null);
+    debug);
     return node;
   }
 
@@ -200,20 +199,21 @@ class App extends Component {
   /* TEST */
   getWalkTime(start_node,end_node)
   {
-    const cnst = 0.001;
+    const cnst = 1;//(0.001 * 0.119617225 * 3.27272727);
     const walktime = cnst * Math.sqrt((start_node.long - end_node.long)**2 + (start_node.lat - end_node.lat)**2);
-    console.log("walktime",start_node,end_node,walktime);
     return walktime;
   }
 
   // Get first index number from Table String after dval
-  /* DONE */
+  /* TEST */
   getWaitTime(end_node, dval)
   {
+    // Required Change: Make sure it includes depart time as part of the window
     return end_node.vals.find((val) => val >= dval) - dval;
   }
 
-  /* DONE */
+  // NEED TO THINK OF BETTER SOLUTION FOR WHEN NO APPROPRIATE WAIT TIME
+  /* TEST */
   getWeight(start_node,end_node)
   {
     if (start_node.next === end_node)
@@ -221,6 +221,9 @@ class App extends Component {
     else {
       const walk_time = this.getWalkTime(start_node,end_node);
       const wait_time = this.getWaitTime(end_node,start_node.dval + walk_time);
+
+      if (isNaN(wait_time))
+        return walk_time;
 
       return walk_time + wait_time;
     }
@@ -231,7 +234,9 @@ class App extends Component {
   {
     this.state.visited_nodes.push(
       this.state.unvisited_nodes.splice(
-          this.state.unvisited_nodes.findIndex(each => each === node)));
+          this.state.unvisited_nodes.findIndex(each => each === node), 1));
+
+    node.visited = true;
 
     return node;
   }
@@ -239,8 +244,7 @@ class App extends Component {
   /* DONE */
   setInitialNode(node, start_dval)
   {
-    node.dval = this.getWaitTime(node, start_dval);
-
+    node.dval = this.getWaitTime(node, start_dval) + start_dval;
     return node;
   }
 
@@ -249,9 +253,17 @@ class App extends Component {
   {
     let current_node = this.setInitialNode(start_node, start_dval);
 
-    while (this.state.visited_nodes.indexOf(target_node) === -1) {
-      for (let node of current_node.neighbors) {
-        let dval = current_node.dval + this.getWeight(current_node,node);
+    while (!target_node.visited) {
+      for (let i = 0; i < current_node.neighbors.length; i++) {
+        const node = current_node.neighbors[i];
+
+        if (node.visited)
+          continue;
+
+        const dval = current_node.dval + this.getWeight(current_node,node);
+
+        if (current_node.next === node)
+          console.log("Nexter", dval, current_node);
         if (dval < node.dval) {
           node.dval = dval;
           node.dprev = current_node;
@@ -260,8 +272,20 @@ class App extends Component {
 
       this.markNodeVisited(current_node);
 
-      current_node = this.state.unvisited_nodes.reduce((acc,node)=>
-        acc.dval < node.dval ? acc : node, target_node);
+      if (this.state.unvisited_nodes.length === 0)
+        break;
+      else {
+        let minimum = target_node;
+        for (let j = 0; j < this.state.unvisited_nodes.length; j++) {
+          if (minimum.dval > this.state.unvisited_nodes[j].dval)
+            minimum = this.state.unvisited_nodes[j];
+        }
+        current_node = minimum;
+        //current_node = this.state.unvisited_nodes.reduce((acc,node)=>
+          //acc.dval < node.dval ? acc : node);
+      }
+
+      console.log("lowest node: ", current_node.dval, current_node);
     }
 
     return target_node;
@@ -272,8 +296,8 @@ class App extends Component {
   componentDidMount() {
     this.createRoutes();
     console.log("routes: ",this.state.unvisited_nodes);
-    let path = this.findPath(this.getNode("27","Village St"), this.getNode("40","MSC"), 0);
-    console.log("target: ",path);
+    let path = this.findPath(this.getNode("27","Village St"), this.getNode("40","MSC"), this.timeStringToDVal("12:00P"));
+    console.log("target: ",path, path.dval - this.timeStringToDVal("12:00P"));
 
     //
   }
