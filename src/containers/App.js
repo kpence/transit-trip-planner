@@ -199,7 +199,7 @@ class App extends Component {
   /* TEST */
   getWalkTime(start_node,end_node)
   {
-    const cnst = 1;//(0.001 * 0.119617225 * 3.27272727);
+    const cnst = (0.0119617225 * 3.27272727);
     const walktime = cnst * Math.sqrt((start_node.long - end_node.long)**2 + (start_node.lat - end_node.lat)**2);
     return walktime;
   }
@@ -262,8 +262,6 @@ class App extends Component {
 
         const dval = current_node.dval + this.getWeight(current_node,node);
 
-        if (current_node.next === node)
-          console.log("Nexter", dval, current_node);
         if (dval < node.dval) {
           node.dval = dval;
           node.dprev = current_node;
@@ -285,7 +283,6 @@ class App extends Component {
           //acc.dval < node.dval ? acc : node);
       }
 
-      console.log("lowest node: ", current_node.dval, current_node);
     }
 
     return target_node;
@@ -296,8 +293,8 @@ class App extends Component {
   componentDidMount() {
     this.createRoutes();
     console.log("routes: ",this.state.unvisited_nodes);
-    let path = this.findPath(this.getNode("27","Village St"), this.getNode("40","MSC"), this.timeStringToDVal("12:00P"));
-    console.log("target: ",path, path.dval - this.timeStringToDVal("12:00P"));
+    let path = this.findPath(this.getNode("27","Village St"), this.getNode("35","Park West"), this.timeStringToDVal("12:00P"));
+    console.log("target: ", path.dval - this.timeStringToDVal("12:00P"), path);
 
     //
   }
