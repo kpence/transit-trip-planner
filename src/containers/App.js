@@ -38,7 +38,7 @@ class App extends Component {
       visited_nodes : [],
       initial_node : null,
       target_node : null,
-      path_results : 0
+      path_results : ' '
     };
   }
 
@@ -206,9 +206,9 @@ class App extends Component {
   }
 
   /* TEST */
-  getWalkTime(start_node,end_node)
+  getWalkTime = (start_node,end_node) =>
   {
-    const cnst = (0.0119617225 * 3.27272727);
+    const cnst = (0.0089617225 * 3.27272727);
     const walktime = cnst * Math.sqrt((start_node.long - end_node.long)**2 + (start_node.lat - end_node.lat)**2);
     return walktime;
   }
@@ -263,6 +263,9 @@ class App extends Component {
   /* TEST */
   findPath(start_node, target_node, start_dval)
   {
+    // DEBUGGING
+    console.log("walktime", this.getWalkTime(start_node, target_node), start_node, target_node, "donewalktime");
+
     let current_node = this.setInitialNode(start_node, start_dval);
 
     while (!target_node.visited) {
@@ -297,7 +300,7 @@ class App extends Component {
 
     }
 
-    return target_node.dval;
+    return target_node;
 
   }
 
@@ -307,6 +310,7 @@ class App extends Component {
   }
 
   handleRouteNumChange2 = (event) => {
+    this.setState({selected_target_stop_name : TimeTable[event.target.value]['stops'][0]});
     this.setState({selected_target_route_num : event.target.value});
   };
 
@@ -315,8 +319,8 @@ class App extends Component {
   };
 
   handleRouteNumChange = (event) => {
+    this.setState({selected_stop_name : TimeTable[event.target.value]['stops'][0]});
     this.setState({selected_route_num : event.target.value});
-    this.setState({initial_node : null});
   };
 
   handleStopNameChange = (event) => {
@@ -333,15 +337,30 @@ class App extends Component {
     this.state.visited_nodes = [];
     this.createRoutes();
     console.log("Getting Initial and Target Nodes....");
-    let initial_node = this.getNode(this.state.selected_target_route_num,this.state.selected_target_stop_name);
+    let initial_node = this.getNode(this.state.selected_route_num,this.state.selected_stop_name);
     let target_node = this.getNode(this.state.selected_target_route_num,this.state.selected_target_stop_name);
     if (target_node !== null
       && typeof target_node !== 'undefined')
     {
       console.log("Finding Path....");
-      let val = this.findPath(initial_node, target_node, this.state.selected_start_dval);
-      this.setState({ path_results:  val - this.state.selected_start_dval });
-      console.log("button press", val);
+      let node = this.findPath(initial_node, target_node, this.state.selected_start_dval);
+      let end_val = node.dval - this.state.selected_start_dval;
+      let path_results = "Total Estimated Travel Time: " + end_val;
+      console.log(node);
+      while (node.dprev !== null) {
+        let prev_node = node;
+        node = node.dprev;
+        let total_val = node.dval - this.state.selected_start_dval;
+        let val = prev_node.dval - node.dval;
+        path_results = " _ ";
+        if (prev_node.route_num !== node.route_num)
+          path_results += "Switch to Bus Route: '" + node.route_num + "' at stop: ";
+        path_results += node.stop_name + ", time elapsed here: " + val + ", total time elapsed: " + total_val;
+      }
+      this.setState({ path_results:  path_results});
+    }
+    else {
+      this.setState({ path_results:  ' '});
     }
   };
 
@@ -407,12 +426,10 @@ class App extends Component {
         <input type='button' onClick={this.handleButtonPress} value='Find Route' />
 
         <div className='results_panel'>
-          Estimated Travel Time: {this.state.path_results}
-        </div>
-        <div className="results_panel2">
-          {this.state.selected_route_num} {this.state.selected_stop_name}<br/>
-          {this.state.selected_target_route_num} {this.state.selected_target_stop_name}<br/>
-          {this.state.selected_start_dval} 
+          {this.state.path_results.split('_').map((each)=>
+            <p>{each}</p>
+          )
+          }
         </div>
       </div>
     );
