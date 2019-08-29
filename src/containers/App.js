@@ -345,18 +345,20 @@ class App extends Component {
       console.log("Finding Path....");
       let node = this.findPath(initial_node, target_node, this.state.selected_start_dval);
       let end_val = node.dval - this.state.selected_start_dval;
-      let path_results = "Total Estimated Travel Time: " + end_val;
+      let str2 = "";
       console.log(node);
       while (node.dprev !== null) {
         let prev_node = node;
         node = node.dprev;
         let total_val = node.dval - this.state.selected_start_dval;
         let val = prev_node.dval - node.dval;
-        path_results = " _ ";
+        let str = " _ ";
         if (prev_node.route_num !== node.route_num)
-          path_results += "Switch to Bus Route: '" + node.route_num + "' at stop: ";
-        path_results += node.stop_name + ", time elapsed here: " + val + ", total time elapsed: " + total_val;
+          str += "Switch to Bus Route: '" + node.route_num + "' at stop: ";
+        str += node.stop_name + ", time elapsed here: " + val + ", total time elapsed: " + total_val;
+        str2 = str + str2;
       }
+      let path_results = "Total Estimated Travel Time: " + end_val + str2 + " _ Destination reached"
       this.setState({ path_results:  path_results});
     }
     else {
