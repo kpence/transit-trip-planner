@@ -14,7 +14,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/4.3.1/workbox-sw.js");
 
 importScripts(
-  "/transit-trip-planner/precache-manifest.d468ba71446f2d6a58d0786420b0c240.js"
+  "/transit-trip-planner/precache-manifest.09e32ac535d48209154df9045ce269e3.js"
 );
 
 self.addEventListener('message', (event) => {
