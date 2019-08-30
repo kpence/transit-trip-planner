@@ -371,40 +371,43 @@ class App extends Component {
 
   render() {
     return (
-      <div className="App">
-        <div className="tmp1">
-          Information pulled from: <a href="https://transport.tamu.edu/busroutes/">Texas A&M Transport Services Bus Routes Web Page</a>.
+      <div className='App'>
+        <div className='top-text'>
+          Information pulled from: <a href='https://transport.tamu.edu/busroutes/'>Texas A&M Transport Services Bus Routes Web Page</a>.
         </div>
-        <div className="container">
-          <div className="timeSelector">
-            <label for='start-time'>Enter the starting time:</label>
-            <input name='start-time' type='time' onChange={this.handleStartTimeChange}></input>
-          </div>
 
+        <div className='start-time'>
+          <label for='start-time'>Enter the starting time:</label><br/>
+          <input name='start-time' type='time' onChange={this.handleStartTimeChange}></input>
+        </div>
+
+        <div className='container'>
           <LocationSelector label='Starting Location: '
             routeNums={this.state.route_nums}
-            stops={TimeTable[this.state.selected_route_num]["stops"]}
+            stops={TimeTable[this.state.selected_route_num]['stops']}
             stopChange={this.handleStopNameChange}
             routeChange={this.handleRouteNumChange}
           />
 
           <LocationSelector label='Destination Stop: '
             routeNums={this.state.route_nums}
-            stops={TimeTable[this.state.selected_target_route_num]["stops"]}
+            stops={TimeTable[this.state.selected_target_route_num]['stops']}
             stopChange={this.handleStopNameChange2}
             routeChange={this.handleRouteNumChange2}
           />
+        </div>
 
 
-          <input className='btn font1' type='button' onClick={this.handleButtonPress} value='Plan my route' />
+        <div className='btn-container'>
+          <input className='btn' type='button' onClick={this.handleButtonPress} value='Plan my route' />
+        </div>
 
-          <div className='results_panel'>
-            {
-              this.state.path_results.split('_').map((each)=>
-              <p>{each}</p>
-              )
-            }
-          </div>
+        <div>
+          {
+            this.state.path_results.split('_').map((each)=>
+            <p className='results'>{each}</p>
+            )
+          }
         </div>
       </div>
     );

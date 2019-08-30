@@ -12,9 +12,9 @@ routeChange={this.handleRouteNumChange2}
 
 const LocationSelector = (props) => {
   return (
-    <div className='font1'>
-      <label className='font1'>{props.label}</label>
-      <select className='select-css' onChange={props.routeChange}>
+    <div>
+      <label>{props.label}</label><br />
+      <select onChange={props.routeChange}>
       {
         props.routeNums.map((route_num, index) => 
           <option key={index} value={route_num}>
@@ -24,7 +24,7 @@ const LocationSelector = (props) => {
       }
       </select>
 
-      <select className='select-css' onChange={props.stopChange}>
+      <select onChange={props.stopChange}>
       {
         props.stops.map((stop_name,index,array) =>
         (index < array.length - 1)

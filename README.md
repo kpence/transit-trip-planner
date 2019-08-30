@@ -1,9 +1,10 @@
 ### Upcoming Features
 
 - Improve Graphical UI.
-- Include time window for stops.
 - Ensure input time doesn't break for browsers sending 24-hour times.
-- Pull information directly from TAMU website.
+- Pull information directly from TAMU through requests.
+  - Include time window for stops (Will need to see if that information is stored).
+  - Include adjustments to algorithm based on whether a Bus's maximum capacity is reached (Will need to see if that information is stored).
 
 
 
