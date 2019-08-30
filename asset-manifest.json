@@ -1,0 +1,16 @@
+{
+  "files": {
+    "main.css": "/transit-trip-planner/static/css/main.3583d0c9.chunk.css",
+    "main.js": "/transit-trip-planner/static/js/main.ed1da829.chunk.js",
+    "main.js.map": "/transit-trip-planner/static/js/main.ed1da829.chunk.js.map",
+    "runtime~main.js": "/transit-trip-planner/static/js/runtime~main.4dc93e66.js",
+    "runtime~main.js.map": "/transit-trip-planner/static/js/runtime~main.4dc93e66.js.map",
+    "static/js/2.053114dd.chunk.js": "/transit-trip-planner/static/js/2.053114dd.chunk.js",
+    "static/js/2.053114dd.chunk.js.map": "/transit-trip-planner/static/js/2.053114dd.chunk.js.map",
+    "index.html": "/transit-trip-planner/index.html",
+    "precache-manifest.d468ba71446f2d6a58d0786420b0c240.js": "/transit-trip-planner/precache-manifest.d468ba71446f2d6a58d0786420b0c240.js",
+    "service-worker.js": "/transit-trip-planner/service-worker.js",
+    "static/css/main.3583d0c9.chunk.css.map": "/transit-trip-planner/static/css/main.3583d0c9.chunk.css.map",
+    "static/media/logo.svg": "/transit-trip-planner/static/media/logo.5d5d9eef.svg"
+  }
+}
