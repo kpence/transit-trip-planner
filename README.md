@@ -1,8 +1,8 @@
 ### Upcoming Features
 
 - Improve Graphical UI.
-  - Make it so that default values do not break anything.
 - Include time window for stops.
+- Ensure input time doesn't break for browsers sending 24-hour times.
 - Pull information directly from TAMU website.
 
 

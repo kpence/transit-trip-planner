@@ -1,8 +1,9 @@
 import React, { Component } from 'react';
 import logo from '../logo.svg';
 import './App.css';
-import TimeTable from '../timetable.js'
-import StopsTable from '../stops.js'
+import TimeTable from '../timetable.js';
+import StopsTable from '../stops.js';
+import LocationSelector from '../components/LocationSelector';
 
 class Node {
   constructor(route_num,stop_name,bus_num,vals,lat,long,time_strings) {
@@ -374,66 +375,36 @@ class App extends Component {
         <div className="tmp1">
           Information pulled from: <a href="https://transport.tamu.edu/busroutes/">Texas A&M Transport Services Bus Routes Web Page</a>.
         </div>
-        <div>
-          <label for='start-time'>Enter the starting time:</label>
-          <input name='start-time' type='time' onChange={this.handleStartTimeChange}></input>
-        </div>
+        <div className="container">
+          <div className="timeSelector">
+            <label for='start-time'>Enter the starting time:</label>
+            <input name='start-time' type='time' onChange={this.handleStartTimeChange}></input>
+          </div>
 
-        <div>
-          <select onChange={this.handleRouteNumChange}>
-          {
-            this.state.route_nums.map((route_num, index) => 
-              <option key={index} value={route_num}>
-              Route: {route_num}
-              </option>
-            )
-          }
-          </select>
+          <LocationSelector label='Starting Location: '
+            routeNums={this.state.route_nums}
+            stops={TimeTable[this.state.selected_route_num]["stops"]}
+            stopChange={this.handleStopNameChange}
+            routeChange={this.handleRouteNumChange}
+          />
 
-          <select onChange={this.handleStopNameChange}>
-          {
-            TimeTable[this.state.selected_route_num]["stops"].map((stop_name,index,array) =>
-            (index < array.length - 1)
-              ? <option key={index} value={stop_name}>
-                Stop: {stop_name}
-                </option>
-              : <div></div>
-            )
-          }
-          </select>
-        </div>
+          <LocationSelector label='Destination Stop: '
+            routeNums={this.state.route_nums}
+            stops={TimeTable[this.state.selected_target_route_num]["stops"]}
+            stopChange={this.handleStopNameChange2}
+            routeChange={this.handleRouteNumChange2}
+          />
 
-        <div>
-          <select onChange={this.handleRouteNumChange2}>
-          {
-            this.state.route_nums.map((route_num, index) => 
-              <option key={index} value={route_num}>
-              Route: {route_num}
-              </option>
-            )
-          }
-          </select>
 
-          <select onChange={this.handleStopNameChange2}>
-          {
-            TimeTable[this.state.selected_target_route_num]["stops"].map((stop_name,index,array) =>
-            (index < array.length - 1)
-              ? <option key={index} value={stop_name}>
-                Stop: {stop_name}
-                </option>
-              : <div></div>
-            )
-          }
-          </select>
-        </div>
+          <input className='btn font1' type='button' onClick={this.handleButtonPress} value='Plan my route' />
 
-        <input type='button' onClick={this.handleButtonPress} value='Find Route' />
-
-        <div className='results_panel'>
-          {this.state.path_results.split('_').map((each)=>
-            <p>{each}</p>
-          )
-          }
+          <div className='results_panel'>
+            {
+              this.state.path_results.split('_').map((each)=>
+              <p>{each}</p>
+              )
+            }
+          </div>
         </div>
       </div>
     );
