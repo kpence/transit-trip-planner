@@ -7,6 +7,14 @@
   - Include adjustments to algorithm based on whether a Bus's maximum capacity is reached (Will need to see if that information is stored).
 
 
+## CREDITS
+
+© OpenStreetMap contributors
+
+The data is available under the Open Database License
+
+[https://www.openstreetmap.org/copyright](https://www.openstreetmap.org/copyright).
+
 
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
