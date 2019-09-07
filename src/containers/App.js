@@ -373,7 +373,8 @@ class App extends Component {
     return (
       <div className='App'>
         <div className='top-text'>
-          Information pulled from: <a href='https://transport.tamu.edu/busroutes/'>Texas A&M Transport Services Bus Routes Web Page</a>.
+          Information pulled from: <a href='https://transport.tamu.edu/busroutes/'>Texas A&M Transport Services Bus Routes Web Page</a>.<br>
+	    Repository (and README) can be found here: <a href='https://github.com/kpence/transit-trip-planner'>https://github.com/kpence/transit-trip-planner</a>.
         </div>
 
         <br/>
