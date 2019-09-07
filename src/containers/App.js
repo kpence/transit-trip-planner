@@ -376,6 +376,9 @@ class App extends Component {
           Information pulled from: <a href='https://transport.tamu.edu/busroutes/'>Texas A&M Transport Services Bus Routes Web Page</a>.
         </div>
 
+        <br/>
+        <br/>
+
         <div className='start-time'>
           <label for='start-time'>Enter the starting time:</label><br/>
           <input name='start-time' type='time' onChange={this.handleStartTimeChange}></input>
