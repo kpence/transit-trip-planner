@@ -4,6 +4,8 @@ import './App.css';
 import TimeTable from '../timetable.js';
 import StopsTable from '../stops.js';
 import LocationSelector from '../components/LocationSelector';
+const rp = require('request-promise');
+const $ = require('cheerio');
 
 class Node {
   constructor(route_num,stop_name,bus_num,vals,lat,long,time_strings) {
@@ -39,7 +41,9 @@ class App extends Component {
       visited_nodes : [],
       initial_node : null,
       target_node : null,
-      path_results : ' '
+      path_results : ' ',
+      bingMapsAPIKey : 'AkO3hqJ8AA_zke5Nfb8bFEXrveVdKkVYOJsfo5rHCt7NO7FSYO9A8uqroL4TbkDZ',
+
     };
   }
 
@@ -75,6 +79,42 @@ class App extends Component {
       node.neighbors = this.state.unvisited_nodes.filter((each)=> (each.route_num !== node.route_num));
       node.neighbors.push(node.next);
     });
+  }
+
+
+  getConversionValues = () =>
+  {
+    const long_V_actual = -96.32062187801847;
+    const lat_V_actual = 30.61080629603167;
+    const long_T_actual = -96.33980696694873;
+    const lat_T_actual = 30.614007275516897;
+    const long_V = StopsTable["27"]["Village St"]["Longitude"];
+    const lat_V = StopsTable["27"]["Village St"]["Latitude"];
+    const long_T = StopsTable["27"]["Trigon"]["Longitude"];
+    const lat_T = StopsTable["27"]["Trigon"]["Latitude"];
+
+    const lat_scalar = (lat_T - lat_V) / (lat_T_actual - lat_V_actual);
+    const long_scalar = (long_T - long_V) / (long_T_actual - long_V_actual);
+    return [
+      lat_scalar,
+      lat_T - lat_T_actual * lat_scalar,
+      long_scalar,
+      long_T - long_T_actual * long_scalar,
+    ];
+  }
+
+  localToActual = (long,lat) =>
+  {
+    var lat_scalar, lat_offset, long_scalar, long_offset;
+    [lat_scalar,lat_offset,long_scalar,long_offset] = this.getConversionValues();
+    return [(long-long_offset)/long_scalar,(lat-lat_offset)/lat_scalar];
+  }
+
+  actualToLocal = (long,lat) =>
+  {
+    var lat_scalar, lat_offset, long_scalar, long_offset;
+    [lat_scalar,lat_offset,long_scalar,long_offset] = this.getConversionValues();
+    return [long*long_scalar+long_offset,lat*lat_scalar+lat_offset];
   }
 
   /* DONE */
@@ -209,8 +249,15 @@ class App extends Component {
   /* TEST */
   getWalkTime = (start_node,end_node) =>
   {
-    const cnst = (0.0089617225 * 3.27272727);
-    const walktime = cnst * Math.sqrt((start_node.long - end_node.long)**2 + (start_node.lat - end_node.lat)**2);
+    var longv,latv,longt,latt,walktime;
+    [longv,latv] = this.localToActual(start_node.long,start_node.lat);
+    [longt,latt] = this.localToActual(end_node.long,end_node.lat);
+    const url = `https://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?origins=${latv},${longv}&destinations=${latt},${longt}&travelMode=walking&key=${this.state.bingMapsAPIKey}`
+
+    fetch(url)
+      .then(response => response.json())
+      .then(api => { console.log(api); walktime = api.resourceSets[0].resources[0].results[0].travelDuration; });
+
     return walktime;
   }
 
@@ -264,8 +311,6 @@ class App extends Component {
   /* TEST */
   findPath(start_node, target_node, start_dval)
   {
-    // DEBUGGING
-    console.log("walktime", this.getWalkTime(start_node, target_node), start_node, target_node, "donewalktime");
 
     let current_node = this.setInitialNode(start_node, start_dval);
 
@@ -307,7 +352,37 @@ class App extends Component {
 
 
   componentDidMount() {
+
     this.setState({route_nums : Object.keys(TimeTable)});
+    
+    console.log('debug begin')
+    var options = {
+      uri: 'https://transport.tamu.edu/busroutes/Routes.aspx?r=01',
+      headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Origin, Content-Type, X-Auth-Token',
+      },
+      transform: function (body) {
+        return $.load(body);
+      }
+
+    };
+
+
+    /*
+    rp(options)
+      .then(function(html){
+        //success!
+        console.log('fdsa')
+        console.log($('big > a', html).length);
+        console.log($('big > a', html));
+      })
+      .catch(function(err){
+        console.log('fail catch')
+        console.log(err.message)
+      });
+      */
   }
 
   handleRouteNumChange2 = (event) => {
