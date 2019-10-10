@@ -3,9 +3,11 @@ import logo from '../logo.svg';
 import './App.css';
 import TimeTable from '../timetable.js';
 import StopsTable from '../stops.js';
+import WalkTimeTable from '../walktimetable.js';
 import LocationSelector from '../components/LocationSelector';
 const rp = require('request-promise');
 const $ = require('cheerio');
+const fs = require('fs');
 
 class Node {
   constructor(route_num,stop_name,bus_num,vals,lat,long,time_strings) {
@@ -15,6 +17,7 @@ class Node {
     this.dval = Infinity;
     this.dprev = null;
     this.visited = false;
+    this.walktime_map = new Map();
 
     this.route_num = route_num;
     this.stop_name = stop_name;
@@ -42,7 +45,6 @@ class App extends Component {
       initial_node : null,
       target_node : null,
       path_results : ' ',
-      bingMapsAPIKey : 'AkO3hqJ8AA_zke5Nfb8bFEXrveVdKkVYOJsfo5rHCt7NO7FSYO9A8uqroL4TbkDZ',
 
     };
   }
@@ -73,14 +75,24 @@ class App extends Component {
 
   // Set the neighbors for all the nodes
   /* DONE */
-  setAllNeighbors()
+  setNeighbors()
   {
-    this.state.unvisited_nodes.forEach((node) => {
-      node.neighbors = this.state.unvisited_nodes.filter((each)=> (each.route_num !== node.route_num));
+    this.state.unvisited_nodes.forEach(node => {
+      node.neighbors = this.state.unvisited_nodes.filter(each => each.route_num !== node.route_num);
       node.neighbors.push(node.next);
     });
   }
 
+  // Set the walk times for all the nodes
+  setWalkTimes()
+  {
+    this.state.unvisited_nodes.forEach(node => {
+      this.state.unvisited_nodes.filter(end => !this.compareNodes(node,end)).forEach(end => {
+        const walktime = WalkTimeTable[node.route_num][node.stop_name][end.route_num][end.stop_name];
+        node.walktime_map.set(end, walktime);
+      });
+    });
+  }
 
   getConversionValues = () =>
   {
@@ -122,7 +134,7 @@ class App extends Component {
   {
     // Set route_nums in lifetime method -> didMount?
     Object.keys(TimeTable).forEach((route_num)=>this.createRoute(route_num));
-    this.setAllNeighbors();
+    this.setNeighbors();
   }
 
   /* DONE */
@@ -246,19 +258,10 @@ class App extends Component {
                             && node.route_num === route_num)[0];
   }
 
-  /* TEST */
+  /* DONE */
   getWalkTime = (start_node,end_node) =>
   {
-    var longv,latv,longt,latt,walktime;
-    [longv,latv] = this.localToActual(start_node.long,start_node.lat);
-    [longt,latt] = this.localToActual(end_node.long,end_node.lat);
-    const url = `https://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?origins=${latv},${longv}&destinations=${latt},${longt}&travelMode=walking&key=${this.state.bingMapsAPIKey}`
-
-    fetch(url)
-      .then(response => response.json())
-      .then(api => { console.log(api); walktime = api.resourceSets[0].resources[0].results[0].travelDuration; });
-
-    return walktime;
+    return 1; //start_node.walktime_map.get(end_node);
   }
 
   // Get first index number from Table String after dval
@@ -351,9 +354,104 @@ class App extends Component {
   }
 
 
-  componentDidMount() {
+  compareNodes = (n,m) => {
+    if (n.route_num === m.route_num && n.stop_name === m.stop_name)
+      return true;
+    return false;
+  }
 
+
+  buildWalkingDistanceMatrix = (bingMapsAPIKey) => {
+    this.state.unvisited_nodes = [];
+    this.createRoutes();
+
+    let result_json = {};
+    Object.keys(TimeTable).forEach(num => {
+        result_json[num] = {};
+      Object.keys(StopsTable[num]).forEach(stop => {
+        result_json[num][stop] = {};
+        Object.keys(TimeTable).forEach(num2 => {
+          result_json[num][stop][num2] = {};
+        });
+      });
+    });
+
+    console.log(result_json);
+
+    let walktime = 0;
+    let body_list = [];
+    
+    const countPerReq = 25;
+
+    let edges = [];
+
+    for (let start_node of this.state.unvisited_nodes)
+    {
+      var longo,lato;
+      [longo,lato] = this.localToActual(start_node.long,start_node.lat);
+
+      for (let end_node of this.state.unvisited_nodes)
+      {
+        // if !end=start, if !in map as the same but flipped edge
+        if (this.compareNodes(start_node,end_node))
+          continue;
+
+        var longd,latd;
+        [longd,latd] = this.localToActual(end_node.long,end_node.lat);
+
+        // Add to POST body
+        body_list.push({
+          "origins": [{"latitude":lato,"longitude":longo}],
+          "destinations": [{"latitude":latd,"longitude":longd}],
+          "travelMode": "walking",
+        });
+
+        edges.push([start_node,end_node]);
+
+      }
+    }
+
+    const url = `https://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?key=${bingMapsAPIKey}`;
+
+    console.log("bl",body_list);
+
+    function fetchRequest(i) {
+      if (i >= body_list.length) {
+        console.log("FINISHED",JSON.stringify(result_json));
+        return (0);
+      }
+      let body_str = JSON.stringify(body_list[i]);
+      const options = {
+        method : "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: body_str
+      };
+      fetch(url,options)
+        .then(response => response.json())
+        .then(api => {
+          console.log(api);
+          const o = edges[i][0];
+          const d = edges[i][1];
+          const time = api.resourceSets[0].resources[0].results[0].travelDuration;
+          result_json[o.route_num][o.stop_name][d.route_num][d.stop_name] = time;
+        })
+        .then((a) => fetchRequest(i+1))
+        .catch(err => console.log(err));
+    }
+    fetchRequest(0);
+
+  }
+
+
+  componentDidMount() {
     this.setState({route_nums : Object.keys(TimeTable)});
+    this.createRoutes();
+    this.setWalkTimes();
+
+    // Create API request for every unique non-directional edge between bus stops, store json in file
+    //this.buildWalkingDistanceMatrix('');
     
     console.log('debug begin')
     var options = {
