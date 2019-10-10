@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import logo from '../logo.svg';
 import './App.css';
+import BingMapsAPIKey from '../bingmapsapikey.js';
 import TimeTable from '../timetable.js';
 import StopsTable from '../stops.js';
 import WalkTimeTable from '../walktimetable.js';
@@ -17,7 +18,6 @@ class Node {
     this.dval = Infinity;
     this.dprev = null;
     this.visited = false;
-    this.walktime_map = new Map();
 
     this.route_num = route_num;
     this.stop_name = stop_name;
@@ -80,17 +80,6 @@ class App extends Component {
     this.state.unvisited_nodes.forEach(node => {
       node.neighbors = this.state.unvisited_nodes.filter(each => each.route_num !== node.route_num);
       node.neighbors.push(node.next);
-    });
-  }
-
-  // Set the walk times for all the nodes
-  setWalkTimes()
-  {
-    this.state.unvisited_nodes.forEach(node => {
-      this.state.unvisited_nodes.filter(end => !this.compareNodes(node,end)).forEach(end => {
-        const walktime = WalkTimeTable[node.route_num][node.stop_name][end.route_num][end.stop_name];
-        node.walktime_map.set(end, walktime);
-      });
     });
   }
 
@@ -261,7 +250,39 @@ class App extends Component {
   /* DONE */
   getWalkTime = (start_node,end_node) =>
   {
-    return 1; //start_node.walktime_map.get(end_node);
+    var walktime;
+    if (start_node.route_num === "origin" || start_node.route_num === "destination")
+    {
+      var longo,lato,longd,latd;
+      [longo,lato] = this.localToActual(start_node.long,start_node.lat);
+      [longd,latd] = this.localToActual(end_node.long,end_node.lat);
+
+      let body = {
+        "origins": [{"latitude":lato,"longitude":longo}],
+        "destinations": [{"latitude":latd,"longitude":longd}],
+        "travelMode": "walking",
+      };
+
+      let body_str = JSON.stringify(body);
+      const options = {
+        method : "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: body_str
+      };
+      const url = `https://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?key=${BingMapsAPIKey}`;
+      fetch(url,options)
+        .then(response => response.json())
+        .then(api => {
+          console.log(api);
+          walktime = api.resourceSets[0].resources[0].results[0].travelDuration;
+        })
+        .catch(err => console.log(err));
+    }
+    else
+      walktime = WalkTimeTable[start_node.route_num][start_node.stop_name][end_node.route_num][end_node.stop_name];
+    return walktime;
   }
 
   // Get first index number from Table String after dval
@@ -361,7 +382,7 @@ class App extends Component {
   }
 
 
-  buildWalkingDistanceMatrix = (bingMapsAPIKey) => {
+  buildWalkingDistanceMatrix = () => {
     this.state.unvisited_nodes = [];
     this.createRoutes();
 
@@ -411,9 +432,7 @@ class App extends Component {
       }
     }
 
-    const url = `https://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?key=${bingMapsAPIKey}`;
-
-    console.log("bl",body_list);
+    const url = `https://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?key=${BingMapsAPIKey}`;
 
     function fetchRequest(i) {
       if (i >= body_list.length) {
@@ -448,7 +467,6 @@ class App extends Component {
   componentDidMount() {
     this.setState({route_nums : Object.keys(TimeTable)});
     this.createRoutes();
-    this.setWalkTimes();
 
     // Create API request for every unique non-directional edge between bus stops, store json in file
     //this.buildWalkingDistanceMatrix('');
@@ -495,6 +513,12 @@ class App extends Component {
   handleRouteNumChange = (event) => {
     this.setState({selected_stop_name : TimeTable[event.target.value]['stops'][0]});
     this.setState({selected_route_num : event.target.value});
+    // Set the inital_node's values here
+    /*let initial_node = this.getNode(this.state.selected_route_num,this.state.selected_stop_name);
+    this.setState({initial_node : {
+      //
+    }});*/
+
   };
 
   handleStopNameChange = (event) => {
@@ -505,6 +529,33 @@ class App extends Component {
     this.setState({selected_start_dval : this.timeStringToDVal(event.target.value)});
   };
 
+  updatePathResults = (node) => {
+    let end_val = node.dval - this.state.selected_start_dval;
+    let path_results = "Total Estimated Travel Time: " + end_val;
+    console.log(node);
+
+    while (node.dprev !== null) {
+      let prev_node = node;
+      node = node.dprev;
+
+      let total_val = prev_node.dval - this.state.selected_start_dval;
+      let val = prev_node.dval - node.dval;
+
+      let str = "";
+      if (prev_node.route_num !== node.route_num) {
+        let walktime = this.getWalkTime(node,prev_node);
+        str += `Walk from "${node.route_num} ${node.stop_name}" to "${prev_node.route_num} ${prev_node.stop_name}", Travel Duration: ${walktime} _`;
+        str += `Wait for Bus to Arrive at "${prev_node.route_num} ${prev_node.stop_name}", Duration: ${val - walktime} _`;
+      }
+      else {
+        str += `Ride bus from "${node.route_num} ${node.stop_name}" to "${prev_node.route_num} ${prev_node.stop_name}", Travel Duration: ${val} _`;
+      }
+      path_results = str + path_results;
+    }
+    path_results = " _ " + path_results + " _ Destination reached";
+    this.setState({ path_results:  path_results});
+  }
+
   handleButtonPress = () => {
     console.log("Creating Routes....");
     this.state.unvisited_nodes = [];
@@ -512,30 +563,15 @@ class App extends Component {
     this.createRoutes();
     console.log("Getting Initial and Target Nodes....");
     let initial_node = this.getNode(this.state.selected_route_num,this.state.selected_stop_name);
+    //let initial_node = new Node(route_num,stop_name,bus_num,vals,lat,long,time_strings);
     let target_node = this.getNode(this.state.selected_target_route_num,this.state.selected_target_stop_name);
+    //let target_node = new Node(target_node_ref.route_num,stop_name,bus_num,vals,lat,long,time_strings);
     if (target_node !== null
       && typeof target_node !== 'undefined')
     {
       console.log("Finding Path....");
       let node = this.findPath(initial_node, target_node, this.state.selected_start_dval);
-      let end_val = node.dval - this.state.selected_start_dval;
-      let str2 = "";
-      console.log(node);
-      while (node.dprev !== null) {
-        let prev_node = node;
-        node = node.dprev;
-        let total_val = prev_node.dval - this.state.selected_start_dval;
-        let val = prev_node.dval - node.dval;
-        let str = " _ ";
-        if (prev_node.route_num !== node.route_num)
-          str += "Switch from Bus Route: '" + node.route_num + "' at stop: ";
-        else
-          str += "From stop: "
-        str += node.stop_name + ", taking this much time: " + val + ", total time elapsed: " + total_val;
-        str2 = str + str2;
-      }
-      let path_results = "Total Estimated Travel Time: " + end_val + str2 + " _ Destination reached"
-      this.setState({ path_results:  path_results});
+      this.updatePathResults(node);
     }
     else {
       this.setState({ path_results:  ' '});
