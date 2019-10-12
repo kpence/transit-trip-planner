@@ -78,6 +78,10 @@ class App extends Component {
   setNeighbors()
   {
     this.state.unvisited_nodes.forEach(node => {
+      if (node.route_num === "origin")
+        console.log("FDSAFDSAFDS----ORIGIn");
+      if (node.route_num === "destination")
+        console.log("FDSAFDSAFDS----DESTINATIONkb");
       node.neighbors = this.state.unvisited_nodes.filter(each => each.route_num !== node.route_num);
       node.neighbors.push(node.next);
     });
@@ -118,11 +122,20 @@ class App extends Component {
     return [long*long_scalar+long_offset,lat*lat_scalar+lat_offset];
   }
 
-  /* DONE */
+  /* TODO */
   createRoutes()
   {
     // Set route_nums in lifetime method -> didMount?
     Object.keys(TimeTable).forEach((route_num)=>this.createRoute(route_num));
+
+    // Create intiial and destination nodes
+    let initial_node = this.createNode(this.state.selected_route_num,this.state.selected_stop_name);
+    initial_node.route_num = "origin";
+    let target_node = this.createNode(this.state.selected_target_route_num,this.state.selected_target_stop_name);
+    target_node.route_num = "destination";
+    this.state.unvisited_nodes.push(initial_node);
+    this.state.unvisited_nodes.push(target_node);
+
     this.setNeighbors();
   }
 
@@ -251,7 +264,10 @@ class App extends Component {
   getWalkTime = (start_node,end_node) =>
   {
     var walktime;
-    if (start_node.route_num === "origin" || start_node.route_num === "destination")
+    if (start_node.route_num === "origin" ||
+      start_node.route_num === "destination" ||
+      end_node.route_num === "origin" ||
+      end_node.route_num === "destination")
     {
       var longo,lato,longd,latd;
       [longo,lato] = this.localToActual(start_node.long,start_node.lat);
@@ -562,9 +578,9 @@ class App extends Component {
     this.state.visited_nodes = [];
     this.createRoutes();
     console.log("Getting Initial and Target Nodes....");
-    let initial_node = this.getNode(this.state.selected_route_num,this.state.selected_stop_name);
+    let initial_node = this.getNode("origin",this.state.selected_stop_name);
     //let initial_node = new Node(route_num,stop_name,bus_num,vals,lat,long,time_strings);
-    let target_node = this.getNode(this.state.selected_target_route_num,this.state.selected_target_stop_name);
+    let target_node = this.getNode("destination",this.state.selected_target_stop_name);
     //let target_node = new Node(target_node_ref.route_num,stop_name,bus_num,vals,lat,long,time_strings);
     if (target_node !== null
       && typeof target_node !== 'undefined')
