@@ -6,8 +6,6 @@ import TimeTable from '../timetable.js';
 import StopsTable from '../stops.js';
 import WalkTimeTable from '../walktimetable.js';
 import LocationSelector from '../components/LocationSelector';
-const rp = require('request-promise');
-const $ = require('cheerio');
 const fs = require('fs');
 
 class Node {
@@ -26,6 +24,8 @@ class Node {
     this.lat = lat;
     this.long = long;
     this.time_strings = time_strings;
+    this.walktime_frominitial = -1;
+    this.walktime_totarget = -1;
   }
 }
 
@@ -125,7 +125,9 @@ class App extends Component {
   /* TODO */
   createRoutes()
   {
-    // Set route_nums in lifetime method -> didMount?
+    // CONSIDER: Set route_nums in lifetime method -> didMount?
+
+    // Call createRoute for each route (which is found in TimeTable)
     Object.keys(TimeTable).forEach((route_num)=>this.createRoute(route_num));
 
     // Create intiial and destination nodes
@@ -133,8 +135,64 @@ class App extends Component {
     initial_node.route_num = "origin";
     let target_node = this.createNode(this.state.selected_target_route_num,this.state.selected_target_stop_name);
     target_node.route_num = "destination";
-    this.state.unvisited_nodes.push(initial_node);
-    this.state.unvisited_nodes.push(target_node);
+
+    // Chain the API calls to find the walk times for the origin and destination nodes
+    // TODO : Get walktime from each node to the initial and target nodes, chain the API calls
+    let unvisited_nodes = this.state.unvisited_nodes;
+    let body_list = [];
+    var longo,lato,longd,latd;
+    [longo,lato] = this.localToActual(initial_node.long,initial_node.lat);
+    [longd,latd] = this.localToActual(target_node.long,target_node.lat);
+
+    for (let node of this.state.unvisited_nodes)
+    {
+      var long,lat;
+      [long,lat] = this.localToActual(node.long,node.lat);
+
+      // Add to POST body
+      body_list.push(`wp.0=${lato},${longo}&wp.1=${lat},${long}`);
+      body_list.push(`wp.0=${lat},${long}&wp.1=${latd},${longd}`);
+    }
+    body_list.push(`wp.0=${lato},${longo}&wp.1=${latd},${longd}`);
+
+    function fetchRequest(i) {
+      if (i >= body_list.length) {
+        return (0);
+      }
+
+      let ix = (i%2 === 1) ? (i-1)/2 : i/2;
+      let url = `http://dev.virtualearth.net/REST/v1/Routes/Walking?${body_list[i]}&optmz=distance&key=${BingMapsAPIKey}`;
+      //let url = `http://dev.virtualearth.net/REST/V1/Routes/Walking?wp.0=47.610,-122.107&wp.1=47.611,-122.104&optmz=distance&key=${BingMapsAPIKey}`;
+
+
+      fetch(url)
+        .then(response => response.json())
+        .then(api => {
+          console.log(api);
+          const time = Math.round(api.resourceSets[0].resources[0].travelDuration / 60);
+          if (i === body_list.length - 1) {
+            initial_node.walktime_totarget = time;
+            initial_node.walktime_frominitial = 0;
+            target_node.walktime_totarget = 0;
+            target_node.walktime_frominitial = time;
+            unvisited_nodes.push(initial_node);
+            unvisited_nodes.push(target_node);
+            console.log("Finished getting walking times for origin and destinations.");
+          }
+          else {
+            if (i%2 === 1)
+              unvisited_nodes[ix].walktime_totarget = time;
+            else
+              unvisited_nodes[ix].walktime_frominitial = time;
+          }
+        })
+        .then((a) => fetchRequest(i+1))
+        .catch(err => console.log(err));
+    }
+    fetchRequest(0);
+    console.log("--fetchrequests finished--.");
+
+    // Add initial and target nodes to nodes list AFTER calculating walk times.
 
     this.setNeighbors();
   }
@@ -264,40 +322,29 @@ class App extends Component {
   getWalkTime = (start_node,end_node) =>
   {
     var walktime;
-    if (start_node.route_num === "origin" ||
-      start_node.route_num === "destination" ||
-      end_node.route_num === "origin" ||
-      end_node.route_num === "destination")
+
+    // If backwards (invalid order), then return an arbitrarily high walk time
+    if (end_node.route_num === "origin" || start_node.route_num === "destination")
     {
-      var longo,lato,longd,latd;
-      [longo,lato] = this.localToActual(start_node.long,start_node.lat);
-      [longd,latd] = this.localToActual(end_node.long,end_node.lat);
-
-      let body = {
-        "origins": [{"latitude":lato,"longitude":longo}],
-        "destinations": [{"latitude":latd,"longitude":longd}],
-        "travelMode": "walking",
-      };
-
-      let body_str = JSON.stringify(body);
-      const options = {
-        method : "POST",
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: body_str
-      };
-      const url = `https://dev.virtualearth.net/REST/v1/Routes/DistanceMatrix?key=${BingMapsAPIKey}`;
-      fetch(url,options)
-        .then(response => response.json())
-        .then(api => {
-          console.log(api);
-          walktime = api.resourceSets[0].resources[0].results[0].travelDuration;
-        })
-        .catch(err => console.log(err));
+      walktime = 99999;
     }
+    //else if (start_node.route_num === "origin" && end_node.walktime_frominitial !== -1)
+    else if (end_node.route_num === "destination")
+    {
+      walktime = end_node.walktime_frominitial;
+    }
+    //else if (end_node.route_num === "destination" && start_node.walktime_totarget !== -1)
+    else if (end_node.route_num === "destination")
+    {
+      walktime = start_node.walktime_totarget;
+    }
+    //}
+    // For every other walktime, pull value from the pre-execution-built WalkTimeTable
     else
+    {
       walktime = WalkTimeTable[start_node.route_num][start_node.stop_name][end_node.route_num][end_node.stop_name];
+    }
+
     return walktime;
   }
 
@@ -357,6 +404,7 @@ class App extends Component {
     while (!target_node.visited) {
       for (let i = 0; i < current_node.neighbors.length; i++) {
         const node = current_node.neighbors[i];
+        console.log(node);
 
         if (node.visited)
           continue;
@@ -502,19 +550,6 @@ class App extends Component {
     };
 
 
-    /*
-    rp(options)
-      .then(function(html){
-        //success!
-        console.log('fdsa')
-        console.log($('big > a', html).length);
-        console.log($('big > a', html));
-      })
-      .catch(function(err){
-        console.log('fail catch')
-        console.log(err.message)
-      });
-      */
   }
 
   handleRouteNumChange2 = (event) => {
