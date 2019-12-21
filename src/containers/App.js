@@ -13,7 +13,7 @@ class Node {
     this.neighbors = [];
     this.next = null;
     this.internal_weight = null;
-    this.dval = Infinity;
+    this.travel_duration = Infinity;
     this.dprev = null;
     this.visited = false;
 
@@ -38,7 +38,7 @@ class App extends Component {
       selected_stop_name : "Trigon",
       selected_target_route_num : "12",
       selected_target_stop_name : "Trigon",
-      selected_start_dval : 420,
+      selected_start_travel_duration : 420,
       route_nums : [],
       unvisited_nodes : [],
       visited_nodes : [],
@@ -285,7 +285,7 @@ class App extends Component {
      * next -- the next internal node
      * ---SET ELSEWHERE
      * neighbors -- all nodes besides internal nodes + next node (Gets set once all nodes created)
-     * dval -- tentative distance value (initially set to Infinity).
+     * travel_duration -- tentative distance value (initially set to Infinity).
      */
 
     // Set Vals Table String
@@ -348,12 +348,12 @@ class App extends Component {
     return walktime;
   }
 
-  // Get first index number from Table String after dval
+  // Get first index number from Table String after travel_duration
   /* TEST */
-  getWaitTime(end_node, dval)
+  getWaitTime(end_node, travel_duration)
   {
     // Required Change: Make sure it includes depart time as part of the window
-    return end_node.vals.find((val) => val >= dval) - dval;
+    return end_node.vals.find((val) => val >= travel_duration) - travel_duration;
   }
 
   // NEED TO THINK OF BETTER SOLUTION FOR WHEN NO APPROPRIATE WAIT TIME
@@ -364,7 +364,7 @@ class App extends Component {
       return start_node.internal_weight;
     else {
       const walk_time = this.getWalkTime(start_node,end_node);
-      const wait_time = this.getWaitTime(end_node,start_node.dval + walk_time);
+      const wait_time = this.getWaitTime(end_node,start_node.travel_duration + walk_time);
 
       if (isNaN(wait_time))
         return walk_time;
@@ -386,20 +386,20 @@ class App extends Component {
   }
 
   /* DONE */
-  setInitialNode(node, start_dval)
+  setInitialNode(node, start_travel_duration)
   {
-    let wait_time = this.getWaitTime(node, start_dval)
+    let wait_time = this.getWaitTime(node, start_travel_duration)
     if (isNaN(wait_time))
       wait_time = 0;
-    node.dval =  wait_time + start_dval;
+    node.travel_duration =  wait_time + travel_duration;
     return node;
   }
 
   /* TEST */
-  findPath(start_node, target_node, start_dval)
+  findPath(start_node, target_node, start_travel_duration)
   {
 
-    let current_node = this.setInitialNode(start_node, start_dval);
+    let current_node = this.setInitialNode(start_node, start_travel_duration);
 
     while (!target_node.visited) {
       for (let i = 0; i < current_node.neighbors.length; i++) {
@@ -409,10 +409,10 @@ class App extends Component {
         if (node.visited)
           continue;
 
-        const dval = current_node.dval + this.getWeight(current_node,node);
+        const td = current_node.travel_duration + this.getWeight(current_node,node);
 
-        if (dval < node.dval) {
-          node.dval = dval;
+        if (td < node.travel_duration) {
+          node.travel_duration = td;
           node.dprev = current_node;
         }
       }
@@ -424,12 +424,12 @@ class App extends Component {
       else {
         let minimum = target_node;
         for (let j = 0; j < this.state.unvisited_nodes.length; j++) {
-          if (minimum.dval > this.state.unvisited_nodes[j].dval)
+          if (minimum.travel_duration > this.state.unvisited_nodes[j].travel_duration)
             minimum = this.state.unvisited_nodes[j];
         }
         current_node = minimum;
         //current_node = this.state.unvisited_nodes.reduce((acc,node)=>
-          //acc.dval < node.dval ? acc : node);
+          //acc.travel_duration < node.travel_duration ? acc : node);
       }
 
     }
@@ -577,11 +577,11 @@ class App extends Component {
   };
 
   handleStartTimeChange = (event) => {
-    this.setState({selected_start_dval : this.timeStringToDVal(event.target.value)});
+    this.setState({selected_start_travel_duration : this.timeStringToDVal(event.target.value)});
   };
 
   updatePathResults = (node) => {
-    let end_val = node.dval - this.state.selected_start_dval;
+    let end_val = node.travel_duration - this.state.selected_start_travel_duration;
     let path_results = "Total Estimated Travel Time: " + end_val;
     console.log(node);
 
@@ -589,8 +589,8 @@ class App extends Component {
       let prev_node = node;
       node = node.dprev;
 
-      let total_val = prev_node.dval - this.state.selected_start_dval;
-      let val = prev_node.dval - node.dval;
+      let total_val = prev_node.travel_duration - this.state.selected_start_travel_duration;
+      let val = prev_node.travel_duration - node.travel_duration;
 
       let str = "";
       if (prev_node.route_num !== node.route_num) {
@@ -621,7 +621,7 @@ class App extends Component {
       && typeof target_node !== 'undefined')
     {
       console.log("Finding Path....");
-      let node = this.findPath(initial_node, target_node, this.state.selected_start_dval);
+      let node = this.findPath(initial_node, target_node, this.state.selected_start_travel_duration);
       this.updatePathResults(node);
     }
     else {
