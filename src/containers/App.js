@@ -8,6 +8,7 @@ import WalkTimeTable from '../walktimetable.js';
 import LocationSelector from '../components/LocationSelector';
 const fs = require('fs');
 
+// A location on Earth that contains
 class Node {
   constructor(route_num,stop_name,bus_num,vals,lat,long,time_strings) {
     this.neighbors = [];
@@ -38,11 +39,11 @@ class App extends Component {
       selected_stop_name : "Trigon",
       selected_target_route_num : "12",
       selected_target_stop_name : "Trigon",
-      selected_start_travel_duration : 420,
+      selected_origin_travel_duration : 420, // Duration in minutes
       route_nums : [],
       unvisited_nodes : [],
       visited_nodes : [],
-      initial_node : null,
+      origin_node : null,
       target_node : null,
       path_results : ' ',
 
@@ -52,25 +53,25 @@ class App extends Component {
 
   // Converts time string from string_table into Dval (time since starting time)
   /* DONE */
-  timeStringToDVal = (str) =>
+  getTravelDurationFromTimeString = (str) =>
   {
     if (str.charAt(0) === 'x')
       return -1;
 
-    let time = 0;
+    let td = 0; // travel duration
 
     // If Afternoon or Midnight
     if ((str.charAt(0) === '0' && str.charAt(str.length-1) === 'P')
      || (str.charAt(0) === '1' && str.charAt(1) === '2' && str.charAt(str.length-1) === 'A'))
     {
-      time += 12*60;
+      td += 12*60; // Add time from first half of day
     }
 
-    time += Number(str.charAt(0)) * 600;
-    time += Number(str.charAt(1)) * 60;
-    time += Number(str.charAt(3)) * 10;
-    time += Number(str.charAt(4));
-    return time;
+    td += Number(str.charAt(0)) * 600;
+    td += Number(str.charAt(1)) * 60;
+    td += Number(str.charAt(3)) * 10;
+    td += Number(str.charAt(4));
+    return td; // return travel duration
 	}
 
   // Set the neighbors for all the nodes
@@ -87,7 +88,7 @@ class App extends Component {
     });
   }
 
-  getConversionValues = () =>
+  getCoordConversionValues = () =>
   {
     const long_V_actual = -96.32062187801847;
     const lat_V_actual = 30.61080629603167;
@@ -98,27 +99,31 @@ class App extends Component {
     const long_T = StopsTable["27"]["Trigon"]["Longitude"];
     const lat_T = StopsTable["27"]["Trigon"]["Latitude"];
 
+    // Calculate scalar matrix and offset matrix
     const lat_scalar = (lat_T - lat_V) / (lat_T_actual - lat_V_actual);
     const long_scalar = (long_T - long_V) / (long_T_actual - long_V_actual);
+
+    const lat_offset = lat_T - lat_T_actual * lat_scalar;
+    const long_offset = long_T - long_T_actual * long_scalar;
     return [
       lat_scalar,
-      lat_T - lat_T_actual * lat_scalar,
+      lat_offset,
       long_scalar,
-      long_T - long_T_actual * long_scalar,
+      long_offset,
     ];
   }
 
-  localToActual = (long,lat) =>
+  convertLocalToActual = (long,lat) =>
   {
     var lat_scalar, lat_offset, long_scalar, long_offset;
-    [lat_scalar,lat_offset,long_scalar,long_offset] = this.getConversionValues();
+    [lat_scalar,lat_offset,long_scalar,long_offset] = this.getCoordConversionValues();
     return [(long-long_offset)/long_scalar,(lat-lat_offset)/lat_scalar];
   }
 
-  actualToLocal = (long,lat) =>
+  convertActualToLocal = (long,lat) =>
   {
     var lat_scalar, lat_offset, long_scalar, long_offset;
-    [lat_scalar,lat_offset,long_scalar,long_offset] = this.getConversionValues();
+    [lat_scalar,lat_offset,long_scalar,long_offset] = this.getCoordConversionValues();
     return [long*long_scalar+long_offset,lat*lat_scalar+lat_offset];
   }
 
@@ -131,8 +136,8 @@ class App extends Component {
     Object.keys(TimeTable).forEach((route_num)=>this.createRoute(route_num));
 
     // Create intiial and destination nodes
-    let initial_node = this.createNode(this.state.selected_route_num,this.state.selected_stop_name);
-    initial_node.route_num = "origin";
+    let origin_node = this.createNode(this.state.selected_route_num,this.state.selected_stop_name);
+    origin_node.route_num = "origin";
     let target_node = this.createNode(this.state.selected_target_route_num,this.state.selected_target_stop_name);
     target_node.route_num = "destination";
 
@@ -141,8 +146,8 @@ class App extends Component {
     let unvisited_nodes = this.state.unvisited_nodes;
     let body_list = [];
     var longo,lato,longd,latd;
-    [longo,lato] = this.localToActual(initial_node.long,initial_node.lat);
-    [longd,latd] = this.localToActual(target_node.long,target_node.lat);
+    [longo,lato] = this.convertLocalToActual(origin_node.long,origin_node.lat);
+    [longd,latd] = this.convertLocalToActual(target_node.long,target_node.lat);
 
     for (let node of this.state.unvisited_nodes)
     {
@@ -171,11 +176,11 @@ class App extends Component {
           console.log(api);
           const time = Math.round(api.resourceSets[0].resources[0].travelDuration / 60);
           if (i === body_list.length - 1) {
-            initial_node.walktime_totarget = time;
-            initial_node.walktime_frominitial = 0;
+            origin_node.walktime_totarget = time;
+            origin_node.walktime_frominitial = 0;
             target_node.walktime_totarget = 0;
             target_node.walktime_frominitial = time;
-            unvisited_nodes.push(initial_node);
+            unvisited_nodes.push(origin_node);
             unvisited_nodes.push(target_node);
             console.log("Finished getting walking times for origin and destinations.");
           }
@@ -238,7 +243,7 @@ class App extends Component {
     var node;
 
     // Prepare Internal Implicit Vertices
-    const table = TimeTable[route_num]["table_string"].split(' ').map((each)=>this.timeStringToDVal(each));
+    const table = TimeTable[route_num]["table_string"].split(' ').map((each)=>this.getTravelDurationFromTimeString(each));
     let counter = 0;
     for (let i = 0; i < stop_list.length; i++) {
       let index = counter * stop_list.length + i;
@@ -268,6 +273,10 @@ class App extends Component {
 
   }
 
+  getTravelDurationsFromRouteNum = (route_num) => {
+    TimeTable[route_num]["table_string"].split(' ').map((str) => this.getTravelDurationFromTimeString(str));
+  }
+
   /* DONE */
   createNode(route_num,stop_name)
   {
@@ -293,7 +302,7 @@ class App extends Component {
     
     const stops_length = TimeTable[route_num]["stops"].length;
     const stop_index = TimeTable[route_num]["stops"].indexOf(stop_name);
-    const timetable = TimeTable[route_num]["table_string"].split(' ').map((each) => this.timeStringToDVal(each));
+    const timetable = getTravelDurationsFromRouteNum(route_num);
     const vals = timetable.filter(function(value, index, Arr) {
       return index % stops_length === stop_index;
     });
@@ -386,9 +395,9 @@ class App extends Component {
   }
 
   /* DONE */
-  setInitialNode(node, start_travel_duration)
+  setOriginNode(node, origin_travel_duration)
   {
-    let wait_time = this.getWaitTime(node, start_travel_duration)
+    let wait_time = this.getWaitTime(node, origin_travel_duration)
     if (isNaN(wait_time))
       wait_time = 0;
     node.travel_duration =  wait_time + travel_duration;
@@ -396,10 +405,10 @@ class App extends Component {
   }
 
   /* TEST */
-  findPath(start_node, target_node, start_travel_duration)
+  findPath(start_node, target_node, origin_travel_duration)
   {
 
-    let current_node = this.setInitialNode(start_node, start_travel_duration);
+    let current_node = this.setOriginNode(start_node, origin_travel_duration);
 
     while (!target_node.visited) {
       for (let i = 0; i < current_node.neighbors.length; i++) {
@@ -565,8 +574,8 @@ class App extends Component {
     this.setState({selected_stop_name : TimeTable[event.target.value]['stops'][0]});
     this.setState({selected_route_num : event.target.value});
     // Set the inital_node's values here
-    /*let initial_node = this.getNode(this.state.selected_route_num,this.state.selected_stop_name);
-    this.setState({initial_node : {
+    /*let origin_node = this.getNode(this.state.selected_route_num,this.state.selected_stop_name);
+    this.setState({origin_node : {
       //
     }});*/
 
@@ -577,11 +586,13 @@ class App extends Component {
   };
 
   handleStartTimeChange = (event) => {
-    this.setState({selected_start_travel_duration : this.timeStringToDVal(event.target.value)});
+    const origin_route_num = event.target.value;
+    const origin_travel_duration = this.getTravelDurationFromTimeString(origin_route_num);
+    this.setState({selected_origin_travel_duration : origin_travel_duration});
   };
 
   updatePathResults = (node) => {
-    let end_val = node.travel_duration - this.state.selected_start_travel_duration;
+    let end_val = node.travel_duration - this.state.selected_origin_travel_duration;
     let path_results = "Total Estimated Travel Time: " + end_val;
     console.log(node);
 
@@ -589,7 +600,7 @@ class App extends Component {
       let prev_node = node;
       node = node.dprev;
 
-      let total_val = prev_node.travel_duration - this.state.selected_start_travel_duration;
+      let total_val = prev_node.travel_duration - this.state.selected_origin_travel_duration;
       let val = prev_node.travel_duration - node.travel_duration;
 
       let str = "";
@@ -613,15 +624,15 @@ class App extends Component {
     this.state.visited_nodes = [];
     this.createRoutes();
     console.log("Getting Initial and Target Nodes....");
-    let initial_node = this.getNode("origin",this.state.selected_stop_name);
-    //let initial_node = new Node(route_num,stop_name,bus_num,vals,lat,long,time_strings);
+    let origin_node = this.getNode("origin",this.state.selected_stop_name);
+    //let origin_node = new Node(route_num,stop_name,bus_num,vals,lat,long,time_strings);
     let target_node = this.getNode("destination",this.state.selected_target_stop_name);
     //let target_node = new Node(target_node_ref.route_num,stop_name,bus_num,vals,lat,long,time_strings);
     if (target_node !== null
       && typeof target_node !== 'undefined')
     {
       console.log("Finding Path....");
-      let node = this.findPath(initial_node, target_node, this.state.selected_start_travel_duration);
+      let node = this.findPath(origin_node, target_node, this.state.selected_origin_travel_duration);
       this.updatePathResults(node);
     }
     else {
@@ -640,9 +651,9 @@ class App extends Component {
         <br/>
         <br/>
 
-        <div className='start-time'>
-          <label for='start-time'>Enter the starting time:</label><br/>
-          <input name='start-time' type='time' onChange={this.handleStartTimeChange}></input>
+        <div className='origin-time'>
+          <label for='origin-time'>Enter the starting time:</label><br/>
+          <input name='origin-time' type='time' onChange={this.handleStartTimeChange}></input>
         </div>
 
         <div className='container'>
