@@ -8,13 +8,7 @@
 
 
 ## CREDITS
-
-© OpenStreetMap contributors
-
-The data is available under the Open Database License
-
-[https://www.openstreetmap.org/copyright](https://www.openstreetmap.org/copyright).
-
+...
 
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
