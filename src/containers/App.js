@@ -357,7 +357,7 @@ class App extends Component {
     return walktime;
   }
 
-  // Get first index number from Table String after travel_duration
+  // Get time spent waiting at bus stop (Get first index number from Table String after travel_duration)
   /* TEST */
   getWaitTime(end_node, travel_duration)
   {
