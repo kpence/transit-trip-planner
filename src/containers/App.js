@@ -10,7 +10,7 @@ const fs = require('fs');
 
 // A location on Earth that contains
 class Node {
-  constructor(route_num,stop_name,bus_num,vals,lat,long,time_strings) {
+  constructor(route_num,stop_name,bus_num,departure_times,lat,long,time_strings) {
     this.neighbors = [];
     this.next = null;
     this.internal_weight = null;
@@ -21,7 +21,7 @@ class Node {
     this.route_num = route_num;
     this.stop_name = stop_name;
     this.bus_num = bus_num;
-    this.vals = vals;
+    this.departure_times = departure_times;
     this.lat = lat;
     this.long = long;
     this.time_strings = time_strings;
@@ -142,7 +142,7 @@ class App extends Component {
     target_node.route_num = "destination";
 
     // Chain the API calls to find the walk times for the origin and destination nodes
-    // TODO : Get walktime from each node to the initial and target nodes, chain the API calls
+    // TODO : Get walktime from each node to the origin and target nodes, chain the API calls
     let unvisited_nodes = this.state.unvisited_nodes;
     let body_list = [];
     var longo,lato,longd,latd;
@@ -197,7 +197,7 @@ class App extends Component {
     fetchRequest(0);
     console.log("--fetchrequests finished--.");
 
-    // Add initial and target nodes to nodes list AFTER calculating walk times.
+    // Add origin and target nodes to nodes list AFTER calculating walk times.
 
     this.setNeighbors();
   }
@@ -243,7 +243,7 @@ class App extends Component {
     var node;
 
     // Prepare Internal Implicit Vertices
-    const table = TimeTable[route_num]["table_string"].split(' ').map((each)=>this.getTravelDurationFromTimeString(each));
+    const table = this.getTravelDurationsFromRouteNum(route_num);
     let counter = 0;
     for (let i = 0; i < stop_list.length; i++) {
       let index = counter * stop_list.length + i;
@@ -286,9 +286,9 @@ class App extends Component {
      * route_num -- route number
      * name -- stop name
      * bus_num -- number of busses on route.
-     * vals -- this contains all the pick up time vals for each stop
+     * departure_times -- this contains all the pick up departure_times for each stop
      * lat, long -- position coordinates
-     * time_strings -- vals but in string format (used for drop down menus)
+     * time_strings -- departure_times but in string format (used for drop down menus)
      * ---SET IN createRoute():
      * internal_weight -- the weight of the internal vertex to next node
      * next -- the next internal node
@@ -300,22 +300,22 @@ class App extends Component {
     // Set Vals Table String
     const bus_num = TimeTable[route_num]["bus_num"];
     
-    const stops_length = TimeTable[route_num]["stops"].length;
+    const stops_count = TimeTable[route_num]["stops"].length;
     const stop_index = TimeTable[route_num]["stops"].indexOf(stop_name);
-    const timetable = getTravelDurationsFromRouteNum(route_num);
-    const vals = timetable.filter(function(value, index, Arr) {
-      return index % stops_length === stop_index;
+    const route_times = this.getTravelDurationsFromRouteNum(route_num);
+    const departure_times = route_times.filter(function(value, index, Arr) {
+      return index % stops_count === stop_index;
     });
 
     const lat = StopsTable[route_num][stop_name]["Latitude"];
     const long = StopsTable[route_num][stop_name]["Longitude"];
 
-    const tt = TimeTable[route_num]["table_string"].split(' ');
-    const time_strings = tt.filter(function(value, index, Arr) {
-        return index % stops_length === stop_index;
+    const strs = TimeTable[route_num]["table_string"].split(' ');
+    const time_strings = strs.filter(function(value, index, Arr) {
+        return index % stops_count === stop_index;
     });
 
-    const node = new Node(route_num,stop_name,bus_num,vals,lat,long,time_strings);
+    const node = new Node(route_num,stop_name,bus_num,departure_times,lat,long,time_strings);
     return node;
   }
 
@@ -327,7 +327,7 @@ class App extends Component {
                             && node.route_num === route_num)[0];
   }
 
-  /* DONE */
+  /* TODO */
   getWalkTime = (start_node,end_node) =>
   {
     var walktime;
@@ -357,17 +357,17 @@ class App extends Component {
     return walktime;
   }
 
-  // Get first index number from Table String after travel_duration
+  // Get the time waiting at the bus stop for the next bus (Get first index number from Table String after travel_duration)
   /* TEST */
   getWaitTime(end_node, travel_duration)
   {
-    // Required Change: Make sure it includes depart time as part of the window
-    return end_node.vals.find((val) => val >= travel_duration) - travel_duration;
+    // TODO Required Change: Make sure it includes depart time as part of the window
+    return end_node.departure_times.find(t => t >= travel_duration) - travel_duration;
   }
 
   // NEED TO THINK OF BETTER SOLUTION FOR WHEN NO APPROPRIATE WAIT TIME
   /* TEST */
-  getWeight(start_node,end_node)
+  getTravelDurationBetweenNodes(start_node,end_node)
   {
     if (start_node.next === end_node)
       return start_node.internal_weight;
@@ -387,7 +387,7 @@ class App extends Component {
   {
     this.state.visited_nodes.push(
       this.state.unvisited_nodes.splice(
-          this.state.unvisited_nodes.findIndex(each => each === node), 1));
+          this.state.unvisited_nodes.findIndex(n => n === node), 1));
 
     node.visited = true;
 
@@ -418,7 +418,7 @@ class App extends Component {
         if (node.visited)
           continue;
 
-        const td = current_node.travel_duration + this.getWeight(current_node,node);
+        const td = current_node.travel_duration + this.getTravelDurationBetweenNodes(current_node,node);
 
         if (td < node.travel_duration) {
           node.travel_duration = td;
@@ -625,9 +625,9 @@ class App extends Component {
     this.createRoutes();
     console.log("Getting Initial and Target Nodes....");
     let origin_node = this.getNode("origin",this.state.selected_stop_name);
-    //let origin_node = new Node(route_num,stop_name,bus_num,vals,lat,long,time_strings);
+    //let origin_node = new Node(route_num,stop_name,bus_num,departure_times,lat,long,time_strings);
     let target_node = this.getNode("destination",this.state.selected_target_stop_name);
-    //let target_node = new Node(target_node_ref.route_num,stop_name,bus_num,vals,lat,long,time_strings);
+    //let target_node = new Node(target_node_ref.route_num,stop_name,bus_num,departure_times,lat,long,time_strings);
     if (target_node !== null
       && typeof target_node !== 'undefined')
     {
