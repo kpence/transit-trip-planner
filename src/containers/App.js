@@ -10,7 +10,7 @@ const fs = require('fs');
 
 // A location on Earth that contains
 class Node {
-  constructor(route_num,stop_name,bus_num,departure_times,lat,long,time_strings) {
+  constructor(route_num,stop_name,departure_times,lat,long,time_strings) {
     this.neighbors = [];
     this.next = null;
     this.internal_weight = null;
@@ -20,7 +20,6 @@ class Node {
 
     this.route_num = route_num;
     this.stop_name = stop_name;
-    this.bus_num = bus_num;
     this.departure_times = departure_times;
     this.lat = lat;
     this.long = long;
@@ -285,7 +284,6 @@ class App extends Component {
      * ---SET IN HERE:
      * route_num -- route number
      * name -- stop name
-     * bus_num -- number of busses on route.
      * departure_times -- this contains all the pick up time vals for each stop
      * lat, long -- position coordinates
      * time_strings -- departure_times but in string format (used for drop down menus)
@@ -297,8 +295,7 @@ class App extends Component {
      * travel_duration -- tentative distance value (initially set to Infinity).
      */
 
-    // Set Vals Table String
-    const bus_num = TimeTable[route_num]["bus_num"];
+    //const bus_num = TimeTable[route_num]["bus_num"];
     
     const stops_count = TimeTable[route_num]["stops"].length;
     const stop_index = TimeTable[route_num]["stops"].indexOf(stop_name);
@@ -315,7 +312,7 @@ class App extends Component {
         return index % stops_count === stop_index;
     });
 
-    const node = new Node(route_num,stop_name,bus_num,departure_times,lat,long,time_strings);
+    const node = new Node(route_num,stop_name,departure_times,lat,long,time_strings);
     return node;
   }
 
@@ -625,9 +622,9 @@ class App extends Component {
     this.createRoutes();
     console.log("Getting Initial and Target Nodes....");
     let origin_node = this.getNode("origin",this.state.selected_stop_name);
-    //let origin_node = new Node(route_num,stop_name,bus_num,departure_times,lat,long,time_strings);
+    //let origin_node = new Node(route_num,stop_name,departure_times,lat,long,time_strings);
     let target_node = this.getNode("destination",this.state.selected_target_stop_name);
-    //let target_node = new Node(target_node_ref.route_num,stop_name,bus_num,departure_times,lat,long,time_strings);
+    //let target_node = new Node(target_node_ref.route_num,stop_name,departure_times,lat,long,time_strings);
     if (target_node !== null
       && typeof target_node !== 'undefined')
     {
