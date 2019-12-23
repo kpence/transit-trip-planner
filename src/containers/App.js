@@ -83,7 +83,7 @@ class App extends Component {
         console.log("FDSAFDSAFDS----ORIGIn");
       if (node.route_num === "destination")
         console.log("FDSAFDSAFDS----DESTINATIONkb");
-      node.neighbors = this.state.unvisited_nodes.filter(each => each.route_num !== node.route_num);
+      node.neighbors = this.state.unvisited_nodes.filter(n => n.route_num !== node.route_num);
       node.neighbors.push(node.next);
     });
   }
@@ -133,7 +133,7 @@ class App extends Component {
     // CONSIDER: Set route_nums in lifetime method -> didMount?
 
     // Call createRoute for each route (which is found in TimeTable)
-    Object.keys(TimeTable).forEach((route_num)=>this.createRoute(route_num));
+    Object.keys(TimeTable).forEach(route_num=>this.createRoute(route_num));
 
     // Create intiial and destination nodes
     let origin_node = this.createNode(this.state.selected_route_num,this.state.selected_stop_name);
@@ -142,7 +142,7 @@ class App extends Component {
     target_node.route_num = "destination";
 
     // Chain the API calls to find the walk times for the origin and destination nodes
-    // TODO : Get walktime from each node to the origin and target nodes, chain the API calls
+    // TODO : Get walktime from each node to the initial and target nodes, chain the API calls
     let unvisited_nodes = this.state.unvisited_nodes;
     let body_list = [];
     var longo,lato,longd,latd;
@@ -152,7 +152,7 @@ class App extends Component {
     for (let node of this.state.unvisited_nodes)
     {
       var long,lat;
-      [long,lat] = this.localToActual(node.long,node.lat);
+      [long,lat] = this.convertLocalToActual(node.long,node.lat);
 
       // Add to POST body
       body_list.push(`wp.0=${lato},${longo}&wp.1=${lat},${long}`);
@@ -197,7 +197,7 @@ class App extends Component {
     fetchRequest(0);
     console.log("--fetchrequests finished--.");
 
-    // Add origin and target nodes to nodes list AFTER calculating walk times.
+    // Add initial and target nodes to nodes list AFTER calculating walk times.
 
     this.setNeighbors();
   }
@@ -274,7 +274,7 @@ class App extends Component {
   }
 
   getTravelDurationsFromRouteNum = (route_num) => {
-    TimeTable[route_num]["table_string"].split(' ').map((str) => this.getTravelDurationFromTimeString(str));
+    TimeTable[route_num]["table_string"].split(' ').map(str => this.getTravelDurationFromTimeString(str));
   }
 
   /* DONE */
@@ -286,7 +286,7 @@ class App extends Component {
      * route_num -- route number
      * name -- stop name
      * bus_num -- number of busses on route.
-     * departure_times -- this contains all the pick up departure_times for each stop
+     * departure_times -- this contains all the pick up time vals for each stop
      * lat, long -- position coordinates
      * time_strings -- departure_times but in string format (used for drop down menus)
      * ---SET IN createRoute():
@@ -323,8 +323,8 @@ class App extends Component {
   getNode = (route_num,stop_name) =>
   {
     return this.state.unvisited_nodes
-             .filter((node) => node.stop_name === stop_name
-                            && node.route_num === route_num)[0];
+             .filter(node => node.stop_name === stop_name
+                          && node.route_num === route_num)[0];
   }
 
   /* TODO */
@@ -357,12 +357,12 @@ class App extends Component {
     return walktime;
   }
 
-  // Get the time waiting at the bus stop for the next bus (Get first index number from Table String after travel_duration)
+  // Get first index number from Table String after travel_duration
   /* TEST */
   getWaitTime(end_node, travel_duration)
   {
-    // TODO Required Change: Make sure it includes depart time as part of the window
-    return end_node.departure_times.find(t => t >= travel_duration) - travel_duration;
+    // Required Change: Make sure it includes depart time as part of the window
+    return end_node.departure_times.find(time => time >= travel_duration) - travel_duration;
   }
 
   // NEED TO THINK OF BETTER SOLUTION FOR WHEN NO APPROPRIATE WAIT TIME
@@ -482,7 +482,7 @@ class App extends Component {
     for (let start_node of this.state.unvisited_nodes)
     {
       var longo,lato;
-      [longo,lato] = this.localToActual(start_node.long,start_node.lat);
+      [longo,lato] = this.convertLocalToActual(start_node.long,start_node.lat);
 
       for (let end_node of this.state.unvisited_nodes)
       {
@@ -491,7 +491,7 @@ class App extends Component {
           continue;
 
         var longd,latd;
-        [longd,latd] = this.localToActual(end_node.long,end_node.lat);
+        [longd,latd] = this.convertLocalToActual(end_node.long,end_node.lat);
 
         // Add to POST body
         body_list.push({
@@ -679,7 +679,7 @@ class App extends Component {
 
         <div>
           {
-            this.state.path_results.split('_').map((each)=>
+            this.state.path_results.split('_').map(each=>
             <p className='results'>{each}</p>
             )
           }
